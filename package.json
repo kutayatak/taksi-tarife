@@ -1,0 +1,9 @@
+{
+  "name": "taksi-tarife",
+  "version": "1.3.0",
+  "private": true,
+  "type": "module",
+  "description": "Static GitHub Pages taxi fare PWA. No production dependencies or build step.",
+  "scripts": { "test": "node --test tests/core.test.js tests/gps.test.js", "test:browser": "node tests/browser.test.js" },
+  "devDependencies": { "playwright": "1.62.1" }
+}
