@@ -17,7 +17,7 @@ const server = createServer(async (req, res) => {
   try {
     if (!file.startsWith(root+sep)) throw Error();
     let data = await readFile(file);
-    if(updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.3.0'","'v1.3.1-test'"));
+    if(updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.4.0'","'v1.4.1-test'"));
     res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':'no-store'}); res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
 });
@@ -37,8 +37,15 @@ try {
     await page.locator('#gps-suggestion').click(); assert.equal(await page.locator('#origin').inputValue(),'cember');
     await page.locator('#origin').selectOption('pop-art');
     assert.equal(await page.locator('#origin option').count(),13);
+    assert.equal(await page.locator('#hub-shortcuts [data-hub]').count(),4);
     assert.equal(await page.locator('#home-favorites [data-route]').count(),6);
-    assert.equal(await page.evaluate(()=>document.querySelector('#frequent-section').compareDocumentPosition(document.querySelector('.origin-card')) & Node.DOCUMENT_POSITION_FOLLOWING),4);
+    assert.equal(await page.evaluate(()=>document.querySelector('#quick-destinations').compareDocumentPosition(document.querySelector('.origin-card')) & Node.DOCUMENT_POSITION_FOLLOWING),4);
+    await page.locator('#hub-shortcuts [data-hub="prime"]').click();
+    assert.equal(await page.locator('#origin').inputValue(),'prime');
+    assert.match(await page.locator('#navigation-destination').innerText(),/PRIME/);
+    assert.equal(await page.locator('#navigation-dialog').isVisible(),true);
+    await page.locator('[data-close-dialog]').click();
+    await page.locator('#origin').selectOption('pop-art');
     for (const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:412,height:915}]) {
       await page.setViewportSize(viewport);
       const layout = await page.evaluate(()=>({searchBottom:document.querySelector('#destination').getBoundingClientRect().bottom,navTop:document.querySelector('.bottom-nav').getBoundingClientRect().top,bodyWidth:document.documentElement.scrollWidth}));
@@ -69,8 +76,13 @@ try {
     assert.equal(await page.locator('#all-results [data-route]').count(),166);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.screenshot({path:`/tmp/taksi-home${prefix==='/'?'-root':''}.png`,fullPage:true});
-    await page.locator('#destination').fill('kale'); await page.locator('#home-results [data-route="pop-art--kale-ici"]').click();
+    await page.locator('#destination').fill('kale');
+    assert.equal(await page.locator('#home-results [data-route]').count(),2);
+    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('#home-results [data-route]')].every(button=>button.dataset.route.startsWith('pop-art--'))),true);
+    assert.match(await page.locator('#home-count').innerText(),/POP ART başlangıcından/);
+    await page.locator('#home-results [data-route="pop-art--kale-ici"]').click();
     assert.match(await page.locator('#fare-result').innerText(),/500 ₺/);
+    assert.equal(await page.locator('#fare-result [data-return-hub]').count(),4);
     await page.waitForFunction(()=>{const p=document.querySelector('.fare-price').getBoundingClientRect();return p.top>=document.querySelector('.app-header').getBoundingClientRect().bottom && p.bottom<innerHeight-document.querySelector('.bottom-nav').offsetHeight;});
     assert.equal(await page.evaluate(()=>{const b=document.querySelector('#theme-toggle').getBoundingClientRect();return b.top>=0 && b.bottom<innerHeight && b.height>=44;}),true);
     await page.getByRole('button',{name:'Favoriye Ekle',exact:true}).click();
@@ -80,6 +92,11 @@ try {
     await page.waitForFunction(()=>document.querySelector('#google-link').href.includes('origin=35.129723%2C33.9285231'));
     assert.match(await page.locator('#navigation-start').innerText(),/Bulunduğum konum/);
     await page.locator('[data-close-dialog]').click();
+    await page.locator('#fare-result [data-return-hub="nurol-arkasi"]').click();
+    assert.equal(await page.locator('#origin').inputValue(),'nurol-arkasi');
+    assert.match(await page.locator('#navigation-destination').innerText(),/NUROL ARKASI/);
+    await page.locator('[data-close-dialog]').click();
+    await page.locator('#origin').selectOption('pop-art');
     await page.locator('[data-tab="home"]').click();
     assert.equal(await page.locator('#home-favorites [data-route]').first().getAttribute('data-route'),'pop-art--kale-ici');
     assert.equal(await page.locator('#frequent-section').isVisible(),true);
@@ -146,7 +163,7 @@ try {
     await page.screenshot({path:`/tmp/taksi-result${prefix==='/'?'-root':''}.png`});
     await context.setOffline(false); updateAvailable=true;
     await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();}); await page.locator('#update-banner').waitFor({state:'visible'}); await page.locator('#update-button').click();
-    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.3.1-test')) && document.querySelector('#update-banner').hidden);
+    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.4.1-test')) && document.querySelector('#update-banner').hidden);
     assert.equal(await page.evaluate(async()=>(await caches.keys()).filter(k=>k.startsWith('taksi-tarife:')).length),1);
     assert.equal(errors.length,0,JSON.stringify(errors));
     if(prefix!=='/') assert.ok(requests.every(p=>p.startsWith(prefix)||p==='/favicon.ico'));

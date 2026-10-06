@@ -10,6 +10,12 @@ let storage;
 try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw new Error('Storage unavailable'); } }; pendingWarning = 'Tarayıcı kayıt izni vermiyor. Değişiklikler bu oturumda kullanılabilir.'; }
 let state = readState(storage, message => { pendingWarning = message; });
 let rows, locations, locationMap, originChoices, selectedId = null, activePage = 'home', gpsSuggestion = null, deferredInstall = null, waitingWorker = null, registration = null;
+const workHubs = [
+  { id: 'pop-art', label: 'POP ART' },
+  { id: 'prime', label: 'PRIME' },
+  { id: 'nurol-arkasi', label: 'NUROL' },
+  { id: 'grand-aras-durak', label: 'DURAK' }
+];
 function refreshData() { rows = effectiveFares(state); locations = allLocations(state); locationMap = new Map(locations.map(l => [l.id, l])); originChoices = originsFor(rows, locations); }
 function persist() { if (!saveState(storage, state)) { toast('Kayıt yapılamadı. Değişiklikler bu oturumda kullanılabilir; JSON yedeği alın.'); return false; } return true; }
 const getRoute = id => id === cityFare.id ? cityFare : rows.find(r => r.id === id);
@@ -39,16 +45,31 @@ function listRoutes(target, list, empty, quick = false, grouped = false) {
   if (!list.length) fragment.append(el('p', 'empty-card', empty));
   target.replaceChildren(fragment);
 }
+function renderWorkHubs() {
+  const fragment = document.createDocumentFragment();
+  for (const hub of workHubs) {
+    const location = locationMap.get(hub.id); if (!location) continue;
+    const button = el('button', 'hub-shortcut'); button.type = 'button'; button.dataset.hub = hub.id;
+    button.setAttribute('aria-label', `${location.name} konumuna git ve tarife başlangıcı yap`);
+    if (state.settings.origin === hub.id) button.setAttribute('aria-current', 'true');
+    const text = el('span', 'hub-label', hub.label); text.append(el('small', '', state.settings.origin === hub.id ? 'Aktif başlangıç' : 'Git ve başlangıç yap'));
+    button.append(icon('nav'), text, icon('arrow')); fragment.append(button);
+  }
+  $('hub-shortcuts').replaceChildren(fragment);
+}
 function renderHome() {
+  renderWorkHubs();
   updateGPSSuggestion();
   const query = $('destination').value.trim();
   $('clear-search').hidden = !query;
   $('home-search').hidden = !query;
   $('fare-result').hidden = !!query || !selectedId;
   if (query) {
-    const matches = searchFares(rows, locations, query, state.settings.origin);
-    $('home-count').textContent = `${matches.length} rota${state.settings.origin ? ' · Seçili başlangıç önce gösterilir' : ''}`;
-    listRoutes($('home-results'), matches, 'Bu arama için tarife bulunamadı. Başka bir ad deneyin.', false, true);
+    const scoped = state.settings.origin ? rows.filter(r => r.from === state.settings.origin) : rows;
+    const matches = searchFares(scoped, locations, query, state.settings.origin);
+    const originName = locationMap.get(state.settings.origin)?.name;
+    $('home-count').textContent = `${matches.length} rota${originName ? ` · ${originName} başlangıcından` : ' · Tüm başlangıçlar'}`;
+    listRoutes($('home-results'), matches, originName ? `${originName} başlangıcından bu hedefe kayıtlı tarife yok. Başlangıcı değiştirin veya Tarifeler sekmesinde tüm rotaları arayın.` : 'Bu arama için tarife bulunamadı. Başka bir ad deneyin.', false, !state.settings.origin);
   } else if (selectedId) renderResult();
   $('frequent-section').hidden = !!selectedId || !!query;
   listRoutes($('home-recents'), state.recents.map(getRoute).filter(Boolean), 'Son baktığınız rotalar burada görünecek.');
@@ -81,6 +102,15 @@ function renderResult() {
     if (reverse) tools.append(action(`Ters yön · ${price(reverse.price)}`, 'secondary-button', () => selectRoute(reverse.id)));
     tools.append(action('Tarifeyi düzenle', 'secondary-button', () => { location.hash = 'settings'; renderSettings(); $('edit-route').value = r.id; renderEditor(); $('edit-route').scrollIntoView({ block: 'center' }); }));
     card.append(tools);
+    const nextStop = el('section', 'next-stop');
+    nextStop.append(el('p', 'next-stop-title', 'Yolculuk sonrası hızlı dönüş'));
+    const hubs = el('div', 'return-grid');
+    for (const hub of workHubs) {
+      const location = locationMap.get(hub.id); if (!location) continue;
+      const button = action(hub.label, 'return-button', () => goToWorkHub(hub.id), 'nav');
+      button.dataset.returnHub = hub.id; button.setAttribute('aria-label', `${location.name} konumuna dön`); hubs.append(button);
+    }
+    nextStop.append(hubs); card.append(nextStop);
   }
   card.append(action('Yeni rota ara', 'text-button', () => { selectedId = null; renderHome(); $('destination').focus(); }));
   $('fare-result').replaceChildren(card);
@@ -161,6 +191,14 @@ function launchNavigationTo(l, label = l?.name) {
     updatePermission();
   }, () => { updatePermission(); }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
 }
+function goToWorkHub(id) {
+  const location = locationMap.get(id); if (!location) return;
+  if (originChoices.some(origin => origin.id === id)) {
+    state.settings.origin = id; $('origin').value = id; selectedId = null; $('destination').value = '';
+    persist(); renderHome();
+  }
+  launchNavigationTo(location);
+}
 $('navigation-target').onchange = () => { $('navigate-current').disabled = !$('navigation-target').value; };
 $('navigate-current').onclick = () => launchNavigationTo(locationMap.get($('navigation-target').value));
 document.querySelector('[data-tab="home"]').addEventListener('click', () => { selectedId = null; $('destination').value = ''; renderHome(); showPage(); });
@@ -171,7 +209,10 @@ $('confirm-cancel').onclick = () => { confirmCallback = null; $('confirm-dialog'
 $('confirm-accept').onclick = () => { $('confirm-dialog').close(); const callback = confirmCallback; confirmCallback = null; callback?.(); };
 document.querySelectorAll('[data-close-dialog]').forEach(b => b.onclick = () => b.closest('dialog').close());
 for (const id of ['apple-link', 'google-link']) $(id).addEventListener('click', () => $('navigation-dialog').close());
-document.addEventListener('click', e => { const button = e.target.closest('[data-route]'); if (button) selectRoute(button.dataset.route); });
+document.addEventListener('click', e => {
+  const hub = e.target.closest('[data-hub]'); if (hub) { goToWorkHub(hub.dataset.hub); return; }
+  const route = e.target.closest('[data-route]'); if (route) selectRoute(route.dataset.route);
+});
 $('origin').addEventListener('change', () => { state.settings.origin = $('origin').value; selectedId = null; persist(); renderHome(); });
 $('destination').addEventListener('input', renderHome);
 $('clear-search').onclick = () => { $('destination').value = ''; renderHome(); $('destination').focus(); };

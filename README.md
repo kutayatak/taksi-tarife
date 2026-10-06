@@ -22,15 +22,17 @@ All application URLs are relative. Hash tabs (`#home`, `#fares`, `#favorites`, `
 
 ## Driver workflow
 
-- The home screen opens with **Sık kullanılanlar**: up to six routes in a horizontal, swipeable row, saved favorites first, then recent routes, then suggestions from the selected origin. The starting point and destination search remain visible on small phone screens. Tapping **Ana Sayfa** returns to this list.
-- Choose a starting point. Origins are generated from the effective fares and ordered by route count; custom origins automatically appear.
-- Tap a quick destination or enter **Nereye?** Search handles Turkish letters, dotted/dotless I, punctuation, and aliases. Matches from the selected origin come first; other origins remain searchable. Choose **Tüm başlangıçlar** to search all routes.
+- The home screen opens with four fixed **Hızlı Git** actions: **Pop Art**, **Prime**, **Nurol**, and **Durak**. One tap prepares that location as the fare origin and opens directions from the driver's current location. Pop Art, Prime, and Nurol use verified pins. Grand Aras Durak currently uses its navigation search text until an exact pin is supplied.
+- The selected fare origin remains prominent below those actions. Origins are generated from the effective fares and ordered by route count; custom origins automatically appear.
+- Enter the passenger destination under **Müşteri nereye gidiyor?** Search handles Turkish letters, dotted/dotless I, punctuation, and aliases, and is intentionally limited to the selected origin to prevent the wrong origin fare being chosen in the vehicle. Use **Tarifeler** to search across all origins.
+- The fare card includes **Pop Art / Prime / Nurol / Durak** return actions. Each prepares the next fare origin while opening current-location directions back to that work hub.
+- Up to six favorite, recent, or suggested fare routes remain available under **Hızlı tarifeler**, below the primary pickup workflow.
 - The selected fare appears prominently. Open navigation, save the complete route as a favorite, or look up the reverse route **only when an explicitly priced reverse route exists**.
 - Up to six favorites are prioritized on the home screen; all saved favorites are in **Favoriler**. Recent lookups keep the last ten distinct routes. Selecting a favorite or recent route restores its origin and **current effective price**, including any local change.
 - **Şehir İçi** is a manual quick fare. It never changes the price of a listed route. It can also be saved as a favorite or recent quick fare.
 - A labeled, sticky header button switches between **Gece** and **Gündüz** in one tap, including while viewing a fare. The button names the mode it will switch to. The choice is stored locally and applied before the first paint on reopen, including offline. **Ayarlar → Tema** also offers **Sisteme göre**, which follows the phone theme. Choose Apple Maps, Google Maps, or ask-every-time navigation in **Ayarlar**. On iPhone/iPad, the navigation chooser puts Apple Maps first.
 
-**Bulunduğum Konumdan Git** on the fare card opens directions from your actual device location to the selected destination. The collapsible **Konumumdan yol tarifi** area on the home screen also supports every registered location, even when no fare exists from the chosen tariff origin. The tariff origin is never used as the navigation start and no GPS-based fare is invented. The map chooser refreshes GPS without delaying its opening; if browser GPS is unavailable, Apple Maps requests Current Location and Google Maps uses its default current-location origin. With a preferred maps app, that app resolves current location directly.
+**Bulunduğum Konumdan Git** on the fare card opens directions from your actual device location to the selected destination. The four **Hızlı Git** and four fare-card return actions do the same for work hubs while explicitly setting the next fare origin. The collapsible **Konumumdan yol tarifi** area on the home screen also supports every registered location, even when no fare exists from the chosen tariff origin. The tariff origin is never used as the navigation start and no GPS-based fare is invented. The map chooser refreshes GPS without delaying its opening; if browser GPS is unavailable, Apple Maps requests Current Location and Google Maps uses its default current-location origin. With a preferred maps app, that app resolves current location directly.
 
 Only navigation launches an external map. Maps are not embedded. Fare lookup never contacts an external service. Navigation may require an internet connection or offline maps configured in the selected maps app.
 
@@ -121,6 +123,6 @@ Tests cover all 166 source prices/labels and group counts; unique route keys; Tu
 
 The browser tests use a local static server and simulate a newer worker in its responses without modifying repository files. Review screenshots go to `review/`; other diagnostic screenshots go to the OS temporary directory. No test server, database, or third-party network request is needed by the production app.
 
-## Home-screen review (v1.2.0)
+## Home-screen review (v1.4.0)
 
 The driver workflow review and resulting layout changes are documented in [UX-REVIEW.md](./UX-REVIEW.md). Screenshots: [night mode](./review/gece.png) and [day mode](./review/gunduz.png). These review images are not loaded by the app or added to the offline shell.
