@@ -2,7 +2,7 @@
 
 A Turkish, mobile-first taxi fare PWA for Northern Cyprus. Upload these files directly to GitHub Pages: no build step, backend, database, API key, paid service, or production Node process is needed.
 
-**166 bundled route fares, 63 canonical locations, zero duplicate routes**, plus the separate **Şehir İçi — 300 ₺** manual quick fare. All supplied source labels and prices are retained on their routes. Fare lookup and local editing work offline after the complete application shell has been cached.
+**166 bundled route fares, 64 canonical locations, zero duplicate routes**, plus the separate **Şehir İçi — 300 ₺** manual quick fare. All supplied source labels and prices are retained on their routes. Fare lookup and local editing work offline after the complete application shell has been cached.
 
 ## Deploy directly to GitHub Pages
 
@@ -22,7 +22,7 @@ All application URLs are relative. Hash tabs (`#home`, `#fares`, `#favorites`, `
 
 ## Driver workflow
 
-- The home screen opens with four fixed **Hızlı Git** actions: **Pop Art**, **Prime**, **Nurol**, and **Durak**. One tap prepares that location as the fare origin and opens directions from the driver's current location. Pop Art, Prime, and Nurol use verified pins. Grand Aras Durak currently uses its navigation search text until an exact pin is supplied.
+- The home screen opens with four fixed **Hızlı Git** actions: **Pop Art**, **Prime**, **Nurol**, and **Durak**. Pop Art, Prime, and Nurol open directions and prepare that location as the fare origin. **Durak** navigates to the Göçmen Taksi stand beside Çilem Market; because that stand has no supplied fare group, it deliberately leaves the current fare origin unchanged. Grand Aras Durak remains a separate 12-route fare origin.
 - The selected fare origin remains prominent below those actions. Origins are generated from the effective fares and ordered by route count; custom origins automatically appear.
 - Enter the passenger destination under **Müşteri nereye gidiyor?** Search handles Turkish letters, dotted/dotless I, punctuation, and aliases, and is intentionally limited to the selected origin to prevent the wrong origin fare being chosen in the vehicle. Use **Tarifeler** to search across all origins.
 - The fare card includes **Pop Art / Prime / Nurol / Durak** return actions. Each prepares the next fare origin while opening current-location directions back to that work hub.
@@ -79,7 +79,7 @@ Edit the relevant record in `data/locations.js`, preserving its ID and replacing
 
 Do not put quotes around numeric coordinates. Both values must be valid together (latitude −90…90, longitude −180…180). Leave unknown values null; the app never geocodes, guesses, or resolves short map links automatically.
 
-**42 of 63 locations have source-backed coordinates: 27 POI records and 15 area references. 21 ambiguous or unresolved labels remain null.** See [COORDINATES.md](./COORDINATES.md) for every source, point type, matching assumptions, and the complete list of pins still needed. City/region coordinates represent an area, not a taxi stand or a specific address; they do not participate in GPS origin suggestions. The owner’s supplied ÇEMBER, KYBLE ÖNÜ, and NUROL ARKASI pins are retained exactly. SEMA OTEL now uses the supplied Euro Tombala reference’s mapped point; TIR PARKI still requires an explicit coordinate pair. No guessed coordinates are shipped. “2” labels remain separate pending confirmation that they are Vito fare variants.
+**43 of 64 locations have source-backed coordinates: 28 POI records and 15 area references. 21 ambiguous or unresolved labels remain null.** See [COORDINATES.md](./COORDINATES.md) for every source, point type, matching assumptions, and the complete list of pins still needed. City/region coordinates represent an area, not a taxi stand or a specific address; they do not participate in GPS origin suggestions. The owner’s supplied ÇEMBER, KYBLE ÖNÜ, and NUROL ARKASI pins are retained exactly. The Taksi Durağı point is the Göçmen Taksi listing beside Çilem Market, not Grand Aras Durak. SEMA OTEL uses the supplied Euro Tombala reference’s mapped point; TIR PARKI still requires an explicit coordinate pair. No guessed coordinates are shipped. “2” labels remain separate pending confirmation that they are Vito fare variants.
 
 **Ayarlar → Konum koordinatları** lets the driver select any existing/custom location, enter verified latitude/longitude, point type, and an optional HTTPS source link, then save locally. Decimal commas are accepted. **Bu noktadayım · GPS kullan** fills the fields with a fresh measurement only when accuracy is ±100 m or better; saving is a separate explicit action. Only use it while physically at the selected location. Local pins appear in backups and modification exports and can be reset per location without changing bundled data. Unknown short map links are not geocoded automatically.
 
@@ -123,6 +123,6 @@ Tests cover all 166 source prices/labels and group counts; unique route keys; Tu
 
 The browser tests use a local static server and simulate a newer worker in its responses without modifying repository files. Review screenshots go to `review/`; other diagnostic screenshots go to the OS temporary directory. No test server, database, or third-party network request is needed by the production app.
 
-## Home-screen review (v1.4.0)
+## Home-screen review (v1.4.1)
 
 The driver workflow review and resulting layout changes are documented in [UX-REVIEW.md](./UX-REVIEW.md). Screenshots: [night mode](./review/gece.png) and [day mode](./review/gunduz.png). These review images are not loaded by the app or added to the offline shell.

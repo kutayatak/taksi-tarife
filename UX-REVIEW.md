@@ -1,10 +1,10 @@
-# Ana sayfa kullanım incelemesi — v1.4.0
+# Ana sayfa kullanım incelemesi — v1.4.1
 
 Taksi sürücüsünün gerçek ana akışı: bulunduğu yer → sık gidilen çalışma noktası → müşteri hedefi → çalışma noktasına dönüş. Önceki düzen ücret rotalarını en üste taşıyor, çalışma noktasına gitmeyi ise kapalı ve alfabetik bir hedef seçicinin içine saklıyordu. Doğrudan navigasyon ayrıca seçilen tarife başlangıcını değiştirmediğinden sürücü yeni noktaya vardığında yanlış başlangıç tarifesini arayabiliyordu.
 
 Yapılan düzenlemeler:
 
-- **Çalışma noktaları ilk sırada.** Pop Art, Prime, Nurol ve Durak tek ekranda dört büyük düğme olarak görünür. Dokunmak mevcut konumdan navigasyonu açar ve aynı noktayı bir sonraki müşteri tarifesinin başlangıcı yapar.
+- **Çalışma noktaları ilk sırada.** Pop Art, Prime, Nurol ve Durak tek ekranda dört büyük düğme olarak görünür. Pop Art, Prime ve Nurol navigasyonu açarken aynı noktayı bir sonraki müşteri tarifesinin başlangıcı yapar. Durak, Çilem Market yanındaki Göçmen Taksi noktasına gider ve ayrı ücret grubu olmadığı için mevcut tarife başlangıcını değiştirmez.
 - **Yanlış başlangıç tarifesi engellenir.** Ana sayfa hedef araması yalnızca seçili tarife başlangıcının rotalarını gösterir. Tüm başlangıçlarda arama Tarifeler sekmesinde korunur.
 - **Dönüş tek dokunuştur.** Ücret kartında Pop Art, Prime, Nurol ve Durak dönüş düğmeleri bulunur; dönüş hedefi aynı anda sonraki tarife başlangıcı olur.
 - **Hızlı tarifeler ikincil sırada.** Altı rota tek yatay sırada; favoriler, son kullanılanlar ve seçili başlangıçtan öneriler bu sırayla yer alır. Favoriler sekmesinde tam listeye erişilir.
@@ -16,4 +16,4 @@ Yapılan düzenlemeler:
 
 Kontroller: 320×568, 375×667, 390×844 ve 412×915 ekranlar; gece/gündüz geçişi; yeniden açılışta ve çevrimdışı tema kalıcılığı; sistem temasını izleme; yatay liste ve sayfa taşması; GPS; mevcut konumdan navigasyon; tarife işlemleri; `/` ve `/taksi-tarife/` altında çevrimdışı kullanım ve sürüm güncellemesi. Chromium tarayıcı otomasyonuyla kontrol edildi; fiziksel cihazda araç içi kullanım testi yapılmadı.
 
-Kullanım önerisi: Ayarlar'dan Apple Maps veya Google Maps'i varsayılan seçmek, çalışma noktası ve dönüş navigasyonlarını doğrudan tek dokunuşa indirir. Grand Aras Durak için kesin koordinat kaydedilene kadar harita uygulaması hedef adını arar.
+Kullanım önerisi: Ayarlar'dan Apple Maps veya Google Maps'i varsayılan seçmek, çalışma noktası ve dönüş navigasyonlarını doğrudan tek dokunuşa indirir. “Durak” ile listedeki “Grand Aras Durak” ayrı konumlardır; hızlı düğme Çilem Market yanındaki taksi durağına gider.

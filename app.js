@@ -14,7 +14,7 @@ const workHubs = [
   { id: 'pop-art', label: 'POP ART' },
   { id: 'prime', label: 'PRIME' },
   { id: 'nurol-arkasi', label: 'NUROL' },
-  { id: 'grand-aras-durak', label: 'DURAK' }
+  { id: 'taksi-duragi', label: 'DURAK', hint: 'Çilem Market yanı' }
 ];
 function refreshData() { rows = effectiveFares(state); locations = allLocations(state); locationMap = new Map(locations.map(l => [l.id, l])); originChoices = originsFor(rows, locations); }
 function persist() { if (!saveState(storage, state)) { toast('Kayıt yapılamadı. Değişiklikler bu oturumda kullanılabilir; JSON yedeği alın.'); return false; } return true; }
@@ -49,10 +49,11 @@ function renderWorkHubs() {
   const fragment = document.createDocumentFragment();
   for (const hub of workHubs) {
     const location = locationMap.get(hub.id); if (!location) continue;
+    const canSetOrigin = originChoices.some(origin => origin.id === hub.id);
     const button = el('button', 'hub-shortcut'); button.type = 'button'; button.dataset.hub = hub.id;
-    button.setAttribute('aria-label', `${location.name} konumuna git ve tarife başlangıcı yap`);
-    if (state.settings.origin === hub.id) button.setAttribute('aria-current', 'true');
-    const text = el('span', 'hub-label', hub.label); text.append(el('small', '', state.settings.origin === hub.id ? 'Aktif başlangıç' : 'Git ve başlangıç yap'));
+    button.setAttribute('aria-label', canSetOrigin ? `${location.name} konumuna git ve tarife başlangıcı yap` : `${location.name} konumuna git`);
+    if (canSetOrigin && state.settings.origin === hub.id) button.setAttribute('aria-current', 'true');
+    const text = el('span', 'hub-label', hub.label); text.append(el('small', '', canSetOrigin && state.settings.origin === hub.id ? 'Aktif başlangıç' : hub.hint || 'Git ve başlangıç yap'));
     button.append(icon('nav'), text, icon('arrow')); fragment.append(button);
   }
   $('hub-shortcuts').replaceChildren(fragment);

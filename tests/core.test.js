@@ -16,10 +16,11 @@ test('All 166 supplied source fares match, including every original label and pr
   assert.equal(c.baseFares.length, 166);
   assert.equal(c.dataProblems.length, 0);
   assert.equal(new Set(fares.map(r => c.routeId(r.from, r.to))).size, 166);
-  assert.equal(locations.length, 63);
-  assert.equal(locations.filter(c.coordinatesExist).length, 42);
+  assert.equal(locations.length, 64);
+  assert.equal(locations.filter(c.coordinatesExist).length, 43);
   assert.equal(locations.find(l => l.id === 'cember').lat, 35.129723);
   assert.equal(locations.find(l => l.id === 'nurol-arkasi').lng, 33.9082698);
+  assert.equal(locations.find(l => l.id === 'taksi-duragi').lat, 35.1311375);
   assert.ok(locations.filter(c.coordinatesExist).every(l => /^https:\/\//.test(l.coordinateSource) && ['poi','area'].includes(l.coordinateKind)));
   assert.ok(locations.filter(l => !c.coordinatesExist(l)).every(l => l.lat === null && l.lng === null));
   assert.equal(c.cityFare.price, 300);
@@ -88,6 +89,7 @@ test('GPS only uses configured numeric coordinates; navigation has text fallback
   assert.equal(c.nearestOrigin({latitude:0,longitude:0},[{id:'test',lat:0,lng:0}]).distance,0);
   assert.ok(c.navigationURL(locations.find(l=>l.id==='kale-ici'),'google').includes(encodeURIComponent('35.125,33.94167')));
   assert.ok(c.navigationURL(locations.find(l=>l.id==='sema-otel'),'google').includes(encodeURIComponent('35.124228,33.928364')));
+  assert.ok(c.navigationURL(locations.find(l=>l.id==='taksi-duragi'),'google').includes(encodeURIComponent('35.1311375,33.9254844')));
   assert.ok(c.navigationURL(locations.find(l=>l.id==='tir-parki'),'google').includes(encodeURIComponent('Koruk Kafe / Tır Parkı')));
   assert.ok(c.navigationURL(locations.find(l=>l.id==='cember'),'google').includes('35.129723%2C33.9285231'));
   assert.ok(c.navigationURL({lat:0,lng:0},'apple').includes('daddr=0%2C0'));

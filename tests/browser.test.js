@@ -17,7 +17,7 @@ const server = createServer(async (req, res) => {
   try {
     if (!file.startsWith(root+sep)) throw Error();
     let data = await readFile(file);
-    if(updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.4.0'","'v1.4.1-test'"));
+    if(updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.4.1'","'v1.4.2-test'"));
     res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':'no-store'}); res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
 });
@@ -44,6 +44,11 @@ try {
     assert.equal(await page.locator('#origin').inputValue(),'prime');
     assert.match(await page.locator('#navigation-destination').innerText(),/PRIME/);
     assert.equal(await page.locator('#navigation-dialog').isVisible(),true);
+    await page.locator('[data-close-dialog]').click();
+    await page.locator('#hub-shortcuts [data-hub="taksi-duragi"]').click();
+    assert.equal(await page.locator('#origin').inputValue(),'prime');
+    assert.match(await page.locator('#navigation-destination').innerText(),/TAKSİ DURAĞI/);
+    assert.ok((await page.locator('#google-link').getAttribute('href')).includes('destination=35.1311375%2C33.9254844'));
     await page.locator('[data-close-dialog]').click();
     await page.locator('#origin').selectOption('pop-art');
     for (const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:412,height:915}]) {
@@ -163,7 +168,7 @@ try {
     await page.screenshot({path:`/tmp/taksi-result${prefix==='/'?'-root':''}.png`});
     await context.setOffline(false); updateAvailable=true;
     await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();}); await page.locator('#update-banner').waitFor({state:'visible'}); await page.locator('#update-button').click();
-    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.4.1-test')) && document.querySelector('#update-banner').hidden);
+    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.4.2-test')) && document.querySelector('#update-banner').hidden);
     assert.equal(await page.evaluate(async()=>(await caches.keys()).filter(k=>k.startsWith('taksi-tarife:')).length),1);
     assert.equal(errors.length,0,JSON.stringify(errors));
     if(prefix!=='/') assert.ok(requests.every(p=>p.startsWith(prefix)||p==='/favicon.ico'));

@@ -754,5 +754,25 @@ export const locations = [
     "sourceName": "Uygulama sahibinin paylaştığı nokta",
     "coordinateKind": "poi",
     "coordinateCheckedAt": "2026-10-06"
+  },
+  {
+    "id": "taksi-duragi",
+    "name": "TAKSİ DURAĞI",
+    "aliases": [
+      "durak",
+      "çilem",
+      "çilem market",
+      "çilem off licence",
+      "göçmen taksi"
+    ],
+    "lat": 35.1311375,
+    "lng": 33.9254844,
+    "navigationText": "Göçmen Taksi, Savaş Sokak, Gazimağusa",
+    "description": "Çilem Market yanındaki taksi durağı",
+    "mapsUrl": "https://www.google.com/maps/search/?api=1&query=8G7M4WJG%2BF55",
+    "coordinateSource": "https://www.cybo.com/CY/famagusta/taxis/",
+    "sourceName": "Göçmen Taksi · 8G7M4WJG+F55",
+    "coordinateKind": "poi",
+    "coordinateCheckedAt": "2026-10-06"
   }
 ];

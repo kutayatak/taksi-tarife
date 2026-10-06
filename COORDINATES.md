@@ -1,6 +1,6 @@
-# Konum araştırması ve eksik noktalar — v1.3.0
+# Konum araştırması ve eksik noktalar — v1.4.1
 
-Araştırma tarihi: 6 Ekim 2026. **63 konumun 42’sinde koordinat var: 27 işletme/nokta ve 15 bölge referansı. 21 kayıt tamamlanmadı.** 166 rota ve tüm fiyatlar korunmuştur. İnternet araştırması geliştirme sırasında yapıldı; uygulama çalışma sırasında harita/arama/Overpass hizmetine bağlanmaz.
+Araştırma tarihi: 6 Ekim 2026. **64 konumun 43’ünde koordinat var: 28 işletme/nokta ve 15 bölge referansı. 21 kayıt tamamlanmadı.** 166 rota ve tüm fiyatlar korunmuştur. İnternet araştırması geliştirme sırasında yapıldı; uygulama çalışma sırasında harita/arama/Overpass hizmetine bağlanmaz.
 
 Koordinatlar sahibin verdiği üç pin, harita nesneleri ve adlandırılmış işletme sayfalarından alınmıştır. Harita kaydını doğrulamak, şoförün kullandığı giriş veya buluşma noktasını sahada doğrulamak anlamına gelmez. Bina/alan kayıtlarında yayınlanan referans nokta kullanıldı; giriş, taksi durağı veya ara nokta tahmin edilmedi. Her konumun `coordinateSource`, `sourceName`, `coordinateKind` ve `coordinateCheckedAt` alanı vardır.
 
@@ -84,6 +84,7 @@ Araştırılmış fakat kullanılmamış adaylar: [Grand Aras Dormitory](https:/
 | HASPOLAT | 35.206372, 33.42002 | Bölge referansı | [Haspolat](https://mapcarta.com/12638280) |
 | LEFKOŞA | 35.211704, 33.321149 | Bölge referansı | [Nicosia](https://mapcarta.com/Nicosia_%28North%29) |
 | NUROL ARKASI | 35.1398173, 33.9082698 | Nokta | [Uygulama sahibinin paylaştığı nokta](https://maps.app.goo.gl/iYDrUtG9YZUa5pDo8) |
+| TAKSİ DURAĞI | 35.1311375, 33.9254844 | Nokta | [Göçmen Taksi · 8G7M4WJG+F55, Çilem Market yanı](https://www.cybo.com/CY/famagusta/taxis/) |
 
 ## Konumumu Bul davranışı
 

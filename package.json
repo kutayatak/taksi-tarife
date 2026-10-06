@@ -1,6 +1,6 @@
 {
   "name": "taksi-tarife",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "private": true,
   "type": "module",
   "description": "Static GitHub Pages taxi fare PWA. No production dependencies or build step.",
