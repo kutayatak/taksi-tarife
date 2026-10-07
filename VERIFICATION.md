@@ -1,4 +1,4 @@
-# Verification — Taksi Tarife v1.5.0
+# Verification — Taksi Tarife v1.5.1
 
 - 166 source fares verified against data/source.txt, retaining every source label and price.
 - 64 location IDs, 43 sourced coordinate pairs (28 POI, 15 area references), 21 unresolved pins. No invented GPS coordinates; source table and unresolved names in COORDINATES.md.

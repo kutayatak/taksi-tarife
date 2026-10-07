@@ -16,7 +16,7 @@ const server = createServer(async (req, res) => {
   try {
     if (!file.startsWith(root+sep)) throw Error();
     let data = await readFile(file);
-    if (updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.5.0'","'v1.5.1-test'"));
+    if (updateAvailable && file.endsWith('service-worker.js')) data = Buffer.from(data.toString().replace("'v1.5.1'","'v1.5.2-test'"));
     res.writeHead(200,{'Content-Type':mime[extname(file)]||'application/octet-stream','Cache-Control':'no-store'}); res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
 });
@@ -60,6 +60,15 @@ try {
 
     await page.locator('#origin').selectOption('prime'); await page.locator('#destination').fill('citymall');
     await page.locator('#home-results [data-destination="citymall"]').click(); assert.match(await page.locator('#fare-result').innerText(),/375 ₺/);
+    const clearsBottomNav = async selector => {
+      await page.evaluate(()=>{document.documentElement.style.scrollBehavior='auto';scrollTo(0,document.documentElement.scrollHeight);});
+      await page.waitForTimeout(50);
+      const gap=await page.evaluate(target=>document.querySelector('.bottom-nav').getBoundingClientRect().top-document.querySelector(target).getBoundingClientRect().bottom,selector);
+      assert.ok(gap>=16,`${selector} must clear the fixed bottom navigation; gap=${gap}`);
+    };
+    await clearsBottomNav('#page-home .local-note');
+    await page.locator('[data-tab="favorites"]').click(); await clearsBottomNav('#favorite-results .route-row:last-child');
+    await page.locator('[data-tab="home"]').click();
     for (const viewport of [{width:320,height:568},{width:375,height:667},{width:390,height:844},{width:412,height:915}]) {
       await page.setViewportSize(viewport); assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     }
@@ -83,7 +92,7 @@ try {
     await context.setOffline(false); updateAvailable=true;
     await page.evaluate(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update();});
     await page.locator('#update-banner').waitFor({state:'visible'}); await page.locator('#update-button').click();
-    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.5.1-test')) && document.querySelector('#update-banner').hidden);
+    await page.waitForFunction(async()=> (await caches.keys()).some(k=>k.endsWith('v1.5.2-test')) && document.querySelector('#update-banner').hidden);
     assert.equal(errors.length,0,JSON.stringify(errors)); if(prefix!=='/') assert.ok(requests.every(p=>p.startsWith(prefix)||p==='/favicon.ico'));
     console.log(`PASS ${prefix}: destination loop, directional fare, flexible saved place, offline and update lifecycle`); await context.close();
   }
