@@ -1,4 +1,4 @@
-import { baseFares, dataProblems, cityFare, normalize, routeId, readState, saveState, allLocations, effectiveFares, originsFor, searchFares, remember, toggleFavorite, modificationExport, importInto, coordinatesExist, nearestOrigin, suggestedOrigin, navigationURL } from './core.js';
+import { baseFares, dataProblems, cityFare, normalize, routeId, readState, saveState, allLocations, effectiveFares, originsFor, searchFares, searchLocations, fareBetween, remember, modificationExport, importInto, coordinatesExist, nearestOrigin, suggestedOrigin, navigationURL } from './core.js';
 import { getDevicePosition, gpsErrorMessage } from './gps.js';
 const $ = id => document.getElementById(id);
 const el = (tag, className, text) => { const n = document.createElement(tag); if (className) n.className = className; if (text !== undefined) n.textContent = text; return n; };
@@ -9,20 +9,16 @@ function toast(message) { $('toast').textContent = message; $('toast').hidden = 
 let storage;
 try { storage = window.localStorage; } catch { storage = { getItem: () => null, setItem: () => { throw new Error('Storage unavailable'); } }; pendingWarning = 'Tarayıcı kayıt izni vermiyor. Değişiklikler bu oturumda kullanılabilir.'; }
 let state = readState(storage, message => { pendingWarning = message; });
-let rows, locations, locationMap, originChoices, selectedId = null, activePage = 'home', gpsSuggestion = null, deferredInstall = null, waitingWorker = null, registration = null;
-const workHubs = [
-  { id: 'pop-art', label: 'POP ART' },
-  { id: 'prime', label: 'PRIME' },
-  { id: 'nurol-arkasi', label: 'NUROL' },
-  { id: 'taksi-duragi', label: 'DURAK', hint: 'Çilem Market yanı' }
-];
+let rows, locations, locationMap, originChoices, selectedId = null, selectedDestinationId = null, pendingDestinationId = null, activePage = 'home', gpsSuggestion = null, deferredInstall = null, waitingWorker = null, registration = null;
 function refreshData() { rows = effectiveFares(state); locations = allLocations(state); locationMap = new Map(locations.map(l => [l.id, l])); originChoices = originsFor(rows, locations); }
 function persist() { if (!saveState(storage, state)) { toast('Kayıt yapılamadı. Değişiklikler bu oturumda kullanılabilir; JSON yedeği alın.'); return false; } return true; }
 const getRoute = id => id === cityFare.id ? cityFare : rows.find(r => r.id === id);
 const names = r => r.id === cityFare.id ? { from: 'MANUEL HIZLI TARİFE', to: 'ŞEHİR İÇİ' } : { from: r.fromName || locationMap.get(r.from)?.name || r.from, to: r.toName || locationMap.get(r.to)?.name || r.to };
 function option(value, text) { const n = el('option', '', text); n.value = value; return n; }
 function fillOrigins() {
-  $('origin').replaceChildren(option('', 'Tüm başlangıçlar'), ...originChoices.map(l => option(l.id, l.name)));
+  const favoriteSet = new Set(state.favoriteLocations);
+  const sorted = [...locations].sort((a, b) => Number(favoriteSet.has(b.id)) - Number(favoriteSet.has(a.id)) || a.name.localeCompare(b.name, 'tr'));
+  $('origin').replaceChildren(...sorted.map(l => option(l.id, l.name)));
   $('origin').value = state.settings.origin;
   const previous = $('all-origin').value;
   $('all-origin').replaceChildren(option('', 'Tüm başlangıçlar'), ...originChoices.map(l => option(l.id, l.name)));
@@ -45,80 +41,70 @@ function listRoutes(target, list, empty, quick = false, grouped = false) {
   if (!list.length) fragment.append(el('p', 'empty-card', empty));
   target.replaceChildren(fragment);
 }
-function renderWorkHubs() {
+function destinationButton(location, removable = false) {
+  const button = el('button', 'route-row destination-row'); button.type = 'button'; button.dataset.destination = location.id;
+  const info = el('span', 'route-info'); info.append(el('small', '', 'HEDEF'), el('span', 'destination-name', location.name));
+  const fare = fareBetween(rows, state.settings.origin, location.id);
+  button.append(info, el('strong', fare ? price(fare.price) : '—'), icon('arrow'));
+  button.setAttribute('aria-label', `${location.name}${fare ? `, ${price(fare.price)}` : ', kayıtlı ücret yok'}`);
+  if (removable) button.dataset.favoriteLocation = location.id;
+  return button;
+}
+function renderPlaceFavorites() {
   const fragment = document.createDocumentFragment();
-  for (const hub of workHubs) {
-    const location = locationMap.get(hub.id); if (!location) continue;
-    const canSetOrigin = originChoices.some(origin => origin.id === hub.id);
-    const button = el('button', 'hub-shortcut'); button.type = 'button'; button.dataset.hub = hub.id;
-    button.setAttribute('aria-label', canSetOrigin ? `${location.name} konumuna git ve tarife başlangıcı yap` : `${location.name} konumuna git`);
-    if (canSetOrigin && state.settings.origin === hub.id) button.setAttribute('aria-current', 'true');
-    const text = el('span', 'hub-label', hub.label); text.append(el('small', '', canSetOrigin && state.settings.origin === hub.id ? 'Aktif başlangıç' : hub.hint || 'Git ve başlangıç yap'));
-    button.append(icon('nav'), text, icon('arrow')); fragment.append(button);
+  for (const id of state.favoriteLocations) {
+    const location = locationMap.get(id); if (!location || id === state.settings.origin) continue;
+    const button = el('button', 'place-chip', location.name.replace('NUROL ARKASI', 'NUROL').replace('TAKSİ DURAĞI', 'DURAK'));
+    button.type = 'button'; button.dataset.destination = id; button.setAttribute('aria-label', `${location.name} hedefini seç`); fragment.append(button);
   }
-  $('hub-shortcuts').replaceChildren(fragment);
+  if (!fragment.childNodes.length) fragment.append(el('p', 'empty-card', 'Sık gidilen konum ekleyebilirsin.'));
+  $('place-favorites').replaceChildren(fragment);
 }
 function renderHome() {
-  renderWorkHubs();
+  renderPlaceFavorites();
   updateGPSSuggestion();
   const query = $('destination').value.trim();
   $('clear-search').hidden = !query;
   $('home-search').hidden = !query;
-  $('fare-result').hidden = !!query || !selectedId;
+  $('fare-result').hidden = !!query || !selectedDestinationId;
   if (query) {
-    const scoped = state.settings.origin ? rows.filter(r => r.from === state.settings.origin) : rows;
-    const matches = searchFares(scoped, locations, query, state.settings.origin);
-    const originName = locationMap.get(state.settings.origin)?.name;
-    $('home-count').textContent = `${matches.length} rota${originName ? ` · ${originName} başlangıcından` : ' · Tüm başlangıçlar'}`;
-    listRoutes($('home-results'), matches, originName ? `${originName} başlangıcından bu hedefe kayıtlı tarife yok. Başlangıcı değiştirin veya Tarifeler sekmesinde tüm rotaları arayın.` : 'Bu arama için tarife bulunamadı. Başka bir ad deneyin.', false, !state.settings.origin);
-  } else if (selectedId) renderResult();
-  $('frequent-section').hidden = !!selectedId || !!query;
-  listRoutes($('home-recents'), state.recents.map(getRoute).filter(Boolean), 'Son baktığınız rotalar burada görünecek.');
-  const current = rows.filter(r => r.from === state.settings.origin);
-  const useful = [...current].sort((a, b) => Number(normalize(names(b).to).startsWith('kale')) - Number(normalize(names(a).to).startsWith('kale')) || Number(b.to === 'citymall') - Number(a.to === 'citymall') || a.price - b.price).slice(0, 6);
-  const frequent = [...new Set([...state.favorites, ...state.recents, ...useful.map(r => r.id)])].map(getRoute).filter(Boolean).slice(0, 6);
-  $('frequent-description').textContent = state.favorites.length || state.recents.length ? 'Favoriler + son rotalar · Kaydırın' : 'Önerilen rotalar · Kaydırın';
-  const previousScroll = $('home-favorites').scrollLeft;
-  listRoutes($('home-favorites'), frequent, 'Hızlı rotalar için bir başlangıç seçin veya bir rotayı favorilere ekleyin.', true);
-  $('home-favorites').scrollLeft = previousScroll;
+    const matches = searchLocations(locations, query, state.settings.origin, state.favoriteLocations).slice(0, 30);
+    $('home-count').textContent = `${matches.length} hedef`;
+    const fragment = document.createDocumentFragment(); matches.forEach(l => fragment.append(destinationButton(l)));
+    if (!matches.length) fragment.append(el('p', 'empty-card', 'Bu adla kayıtlı konum bulunamadı.'));
+    $('home-results').replaceChildren(fragment);
+  } else if (selectedDestinationId) renderResult();
 }
 function action(text, className, handler, iconName) { const button = el('button', className, text); if (iconName) button.prepend(icon(iconName)); button.addEventListener('click', handler); return button; }
 function renderResult() {
-  const r = getRoute(selectedId); if (!r) { selectedId = null; $('fare-result').hidden = true; return; }
-  const n = names(r), card = el('div', 'fare-card'), route = el('div', 'fare-route');
-  route.append(el('span', 'from', n.from)); if (r.id !== cityFare.id) route.append(el('span', 'down', '↓')); route.append(el('span', '', n.to));
-  const p = el('div', 'fare-price', new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(r.price)); p.append(el('span', '', ' ₺'));
-  card.append(route, p, el('p', 'fare-caption', r.id === cityFare.id ? 'Manuel tarife · Listeli rota ücretlerini değiştirmez' : r.overridden || r.custom ? 'Bu cihazdaki özel tarife · TL' : 'Kayıtlı rota ücreti · TL'));
+  const from = locationMap.get(state.settings.origin), to = locationMap.get(selectedDestinationId);
+  if (!from || !to || from.id === to.id) { selectedDestinationId = null; $('fare-result').hidden = true; return; }
+  const r = fareBetween(rows, from.id, to.id); selectedId = r?.id || null;
+  const card = el('div', 'fare-card'), route = el('div', 'fare-route');
+  route.append(el('span', 'from', from.name), el('span', 'down', '↓'), el('span', '', to.name));
+  if (r) { const p = el('div', 'fare-price', new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(r.price)); p.append(el('span', '', ' ₺')); card.append(route, p, el('p', 'fare-caption', r.overridden || r.custom ? 'Bu cihazdaki kayıtlı tarife' : 'Listeden alınan doğru yön ücreti')); }
+  else card.append(route, el('div', 'fare-unavailable', 'Ücret kaydı yok'), el('p', 'fare-caption warning', `${from.name} → ${to.name} yönü listede yok. Tutar uydurulmadı.`));
   const actions = el('div', 'fare-actions');
-  if (r.id !== cityFare.id) actions.append(action('Bulunduğum Konumdan Git', 'primary-button', () => launchNavigationTo(locationMap.get(r.to), names(r).to), 'nav'));
-  const starred = state.favorites.includes(r.id);
-  actions.append(action(starred ? 'Favorilerden çıkar' : 'Favoriye Ekle', 'secondary-button', () => {
-    if (!toggleFavorite(state, r.id)) return toast('En fazla 100 favori kaydedilebilir.');
-    persist(); renderHome(); renderFavorites();
-  }, 'star'));
-  card.append(actions);
-  if (r.id !== cityFare.id) {
-    const reverse = rows.find(x => x.from === r.to && x.to === r.from);
-    const tools = el('div', 'fare-tools');
-    if (reverse) tools.append(action(`Ters yön · ${price(reverse.price)}`, 'secondary-button', () => selectRoute(reverse.id)));
-    tools.append(action('Tarifeyi düzenle', 'secondary-button', () => { location.hash = 'settings'; renderSettings(); $('edit-route').value = r.id; renderEditor(); $('edit-route').scrollIntoView({ block: 'center' }); }));
-    card.append(tools);
-    const nextStop = el('section', 'next-stop');
-    nextStop.append(el('p', 'next-stop-title', 'Yolculuk sonrası hızlı dönüş'));
-    const hubs = el('div', 'return-grid');
-    for (const hub of workHubs) {
-      const location = locationMap.get(hub.id); if (!location) continue;
-      const button = action(hub.label, 'return-button', () => goToWorkHub(hub.id), 'nav');
-      button.dataset.returnHub = hub.id; button.setAttribute('aria-label', `${location.name} konumuna dön`); hubs.append(button);
-    }
-    nextStop.append(hubs); card.append(nextStop);
-  }
-  card.append(action('Yeni rota ara', 'text-button', () => { selectedId = null; renderHome(); $('destination').focus(); }));
+  actions.append(action('Yol tarifini aç', 'primary-button', () => startTrip(to), 'nav'));
+  const starred = state.favoriteLocations.includes(to.id);
+  actions.append(action(starred ? 'Sık gidilenlerden çıkar' : 'Sık gidilenlere ekle', 'secondary-button', () => toggleLocationFavorite(to.id), 'star'));
+  card.append(actions, action('Başka hedef seç', 'text-button new-target', () => { selectedDestinationId = null; selectedId = null; renderHome(); $('destination').focus(); }));
   $('fare-result').replaceChildren(card);
+}
+function toggleLocationFavorite(id) {
+  state.favoriteLocations = state.favoriteLocations.includes(id) ? state.favoriteLocations.filter(x => x !== id) : [...state.favoriteLocations, id].slice(-100);
+  persist(); renderHome(); renderFavorites();
+}
+function selectDestination(id) {
+  if (!locationMap.has(id) || id === state.settings.origin) return;
+  selectedDestinationId = id; selectedId = fareBetween(rows, state.settings.origin, id)?.id || null;
+  if (selectedId) remember(state, selectedId);
+  persist(); $('destination').value = ''; $('destination').blur(); location.hash = 'home'; renderHome();
+  $('fare-result').scrollIntoView({ block: 'start', behavior: 'instant' });
 }
 function selectRoute(id) {
   const r = getRoute(id); if (!r) return;
-  selectedId = id;
+  selectedId = id; selectedDestinationId = r.to;
   if (r.from) { state.settings.origin = r.from; $('origin').value = r.from; }
   remember(state, id); persist(); $('destination').value = ''; $('destination').blur(); location.hash = 'home'; renderHome();
   $('fare-result').scrollIntoView({ block: 'start', behavior: 'instant' });
@@ -129,7 +115,12 @@ function renderFares() {
   $('all-count').textContent = `${matches.length} rota · Ücretler TL`;
   listRoutes($('all-results'), matches, 'Bu filtre için tarife bulunamadı.', false, !origin);
 }
-function renderFavorites() { listRoutes($('favorite-results'), state.favorites.map(getRoute).filter(Boolean), 'Henüz favori yok. Bir rota açıp “Favoriye Ekle” düğmesine dokunun.'); }
+function renderFavorites() {
+  const list = state.favoriteLocations.map(id => locationMap.get(id)).filter(Boolean);
+  const fragment = document.createDocumentFragment(); list.forEach(l => fragment.append(destinationButton(l, true)));
+  if (!list.length) fragment.append(el('p', 'empty-card', 'Henüz favori konum yok. Ana ekrandan bir hedefi veya bulunduğun yeri kaydet.'));
+  $('favorite-results').replaceChildren(fragment);
+}
 function renderSettings() {
   $('theme').value = state.settings.theme; $('navigation').value = state.settings.navigation;
   const previous = $('edit-route').value;
@@ -146,13 +137,13 @@ function renderEditor() {
   $('original-price').textContent = base ? `Varsayılan ücret: ${price(base.price)}` : 'Bu rota yerel olarak eklendi.';
   $('reset-route').hidden = !base; $('reset-route').disabled = !r.overridden; $('delete-route').hidden = !r.custom;
 }
-function refreshAll() { refreshData(); fillOrigins(); fillNavigationTargets(); renderHome(); renderFares(); renderFavorites(); renderSettings(); applyTheme(); }
+function refreshAll() { refreshData(); fillOrigins(); renderHome(); renderFares(); renderFavorites(); renderSettings(); applyTheme(); }
 function showPage() {
   activePage = ['home', 'fares', 'favorites', 'settings'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'home';
   document.querySelectorAll('.page').forEach(p => { p.hidden = p.id !== `page-${activePage}`; });
   document.querySelectorAll('[data-tab]').forEach(a => { if (a.dataset.tab === activePage) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (activePage === 'fares') renderFares(); if (activePage === 'favorites') renderFavorites(); if (activePage === 'settings') renderSettings();
-  if (activePage === 'home' && selectedId && !$('destination').value.trim()) $('fare-result').scrollIntoView({ block: 'start', behavior: 'instant' });
+  if (activePage === 'home' && selectedDestinationId && !$('destination').value.trim()) $('fare-result').scrollIntoView({ block: 'start', behavior: 'instant' });
   else window.scrollTo({ top: 0, behavior: 'instant' });
 }
 function applyTheme() {
@@ -164,12 +155,6 @@ function applyTheme() {
   $('theme-toggle').title = `${next} moduna geç`;
   $('theme-toggle').querySelector('use').setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
   document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#111513' : '#f4f5ee';
-}
-function fillNavigationTargets() {
-  const previous = $('navigation-target').value;
-  $('navigation-target').replaceChildren(option('', 'Hedef konum seçin'), ...[...locations].sort((a, b) => a.name.localeCompare(b.name, 'tr')).map(l => option(l.id, l.name)));
-  if (locationMap.has(previous)) $('navigation-target').value = previous;
-  $('navigate-current').disabled = !$('navigation-target').value;
 }
 let navigationRequest = 0;
 function launchNavigationTo(l, label = l?.name) {
@@ -192,33 +177,33 @@ function launchNavigationTo(l, label = l?.name) {
     updatePermission();
   }, () => { updatePermission(); }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 });
 }
-function goToWorkHub(id) {
-  const location = locationMap.get(id); if (!location) return;
-  if (originChoices.some(origin => origin.id === id)) {
-    state.settings.origin = id; $('origin').value = id; selectedId = null; $('destination').value = '';
-    persist(); renderHome();
-  }
+function startTrip(location) {
+  pendingDestinationId = location.id;
   launchNavigationTo(location);
+  if (state.settings.navigation !== 'ask') advanceToDestination();
 }
-$('navigation-target').onchange = () => { $('navigate-current').disabled = !$('navigation-target').value; };
-$('navigate-current').onclick = () => launchNavigationTo(locationMap.get($('navigation-target').value));
-document.querySelector('[data-tab="home"]').addEventListener('click', () => { selectedId = null; $('destination').value = ''; renderHome(); showPage(); });
+function advanceToDestination() {
+  if (!pendingDestinationId || !locationMap.has(pendingDestinationId)) return;
+  state.settings.origin = pendingDestinationId; pendingDestinationId = null; selectedDestinationId = null; selectedId = null; $('destination').value = '';
+  persist(); fillOrigins(); renderHome();
+  toast(`${locationMap.get(state.settings.origin).name} artık başlangıç noktan.`);
+}
+document.querySelector('[data-tab="home"]').addEventListener('click', () => { $('destination').value = ''; renderHome(); showPage(); });
 
 let confirmCallback;
 function confirmAction(title, description, callback) { $('confirm-title').textContent = title; $('confirm-description').textContent = description; confirmCallback = callback; $('confirm-dialog').showModal(); }
 $('confirm-cancel').onclick = () => { confirmCallback = null; $('confirm-dialog').close(); };
 $('confirm-accept').onclick = () => { $('confirm-dialog').close(); const callback = confirmCallback; confirmCallback = null; callback?.(); };
 document.querySelectorAll('[data-close-dialog]').forEach(b => b.onclick = () => b.closest('dialog').close());
-for (const id of ['apple-link', 'google-link']) $(id).addEventListener('click', () => $('navigation-dialog').close());
+for (const id of ['apple-link', 'google-link']) $(id).addEventListener('click', () => { $('navigation-dialog').close(); advanceToDestination(); });
 document.addEventListener('click', e => {
-  const hub = e.target.closest('[data-hub]'); if (hub) { goToWorkHub(hub.dataset.hub); return; }
+  const destination = e.target.closest('[data-destination]'); if (destination) { selectDestination(destination.dataset.destination); return; }
   const route = e.target.closest('[data-route]'); if (route) selectRoute(route.dataset.route);
 });
-$('origin').addEventListener('change', () => { state.settings.origin = $('origin').value; selectedId = null; persist(); renderHome(); });
+$('origin').addEventListener('change', () => { state.settings.origin = $('origin').value; selectedId = null; selectedDestinationId = null; persist(); renderHome(); });
 $('destination').addEventListener('input', renderHome);
 $('clear-search').onclick = () => { $('destination').value = ''; renderHome(); $('destination').focus(); };
 $('all-search').addEventListener('input', renderFares); $('all-origin').addEventListener('change', renderFares);
-$('city-fare').onclick = () => selectRoute(cityFare.id);
 window.addEventListener('hashchange', showPage);
 $('theme').onchange = () => { state.settings.theme = $('theme').value; persist(); applyTheme(); };
 $('theme-toggle').onclick = () => { state.settings.theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; persist(); applyTheme(); $('theme').value = state.settings.theme; };
@@ -238,7 +223,6 @@ $('delete-route').onclick = () => {
   confirmAction('Özel rota silinsin mi?', 'Bu rota favorilerinizden ve son kullanılanlardan da kaldırılacak.', () => {
     state.customRoutes = state.customRoutes.filter(r => r.id !== id); state.favorites = state.favorites.filter(r => r !== id); state.recents = state.recents.filter(r => r !== id);
     if (selectedId === id) selectedId = null;
-    if (!state.customRoutes.some(r => r.from === state.settings.origin) && !baseFares.some(r => r.from === state.settings.origin)) state.settings.origin = 'pop-art';
     persist(); refreshAll();
   });
 };
@@ -272,17 +256,17 @@ $('import-file').onchange = async () => {
   try {
     if (file.size > 2000000) throw new Error('Dosya en fazla 2 MB olmalı.');
     const value = JSON.parse(await file.text()); const next = importInto(state, value);
-    confirmAction('Veriler içe aktarılsın mı?', value.kind === 'taksi-tarife-backup' ? `Tam yedek: ${next.customRoutes.length} özel rota ve ${Object.keys(next.overrides).length} fiyat değişikliği. Mevcut ayarlar, favoriler ve geçmiş bu yedekle değiştirilecek.` : `${Object.keys(value.overrides).length} fiyat değişikliği ve ${value.customRoutes.length} özel rota mevcut verilerle birleştirilecek.`, () => { state = next; selectedId = null; const saved = persist(); refreshAll(); if (saved) toast('Veriler başarıyla içe aktarıldı.'); });
+    confirmAction('Veriler içe aktarılsın mı?', value.kind === 'taksi-tarife-backup' ? `Tam yedek: ${next.customRoutes.length} özel rota ve ${Object.keys(next.overrides).length} fiyat değişikliği. Mevcut ayarlar, favoriler ve geçmiş bu yedekle değiştirilecek.` : `${Object.keys(value.overrides).length} fiyat değişikliği ve ${value.customRoutes.length} özel rota mevcut verilerle birleştirilecek.`, () => { state = next; selectedId = null; selectedDestinationId = null; const saved = persist(); refreshAll(); if (saved) toast('Veriler başarıyla içe aktarıldı.'); });
   } catch (err) { toast(err instanceof SyntaxError ? 'JSON dosyası okunamadı. Verileriniz değiştirilmedi.' : err.message); }
 };
 $('reset-all').onclick = () => confirmAction('Varsayılan tarifelere dönülsün mü?', 'Tüm fiyat değişiklikleri ve özel rotalar silinir. Tema ve navigasyon tercihleriniz korunur. Önce JSON yedeği alabilirsiniz.', () => {
   const ids = new Set([...baseFares.map(r => r.id), cityFare.id]);
   for (const l of state.customLocations) delete state.coordinateOverrides[l.id];
-  state.overrides = {}; state.customRoutes = []; state.customLocations = []; state.favorites = state.favorites.filter(id => ids.has(id)); state.recents = state.recents.filter(id => ids.has(id));
-  if (!baseFares.some(r => r.from === state.settings.origin)) state.settings.origin = 'pop-art'; selectedId = null; persist(); refreshAll();
+  state.overrides = {}; state.customRoutes = []; state.customLocations = []; state.favorites = state.favorites.filter(id => ids.has(id)); state.favoriteLocations = ['pop-art', 'prime', 'nurol-arkasi', 'taksi-duragi']; state.recents = state.recents.filter(id => ids.has(id));
+  if (!locationMap.has(state.settings.origin) || state.settings.origin.startsWith('custom-')) state.settings.origin = 'pop-art'; selectedId = null; selectedDestinationId = null; persist(); refreshAll();
 });
 $('clear-recents').onclick = () => confirmAction('Son kullanılanlar temizlensin mi?', 'Son 10 rota geçmişi silinecek.', () => { state.recents = []; persist(); renderHome(); });
-$('clear-favorites').onclick = () => confirmAction('Favoriler temizlensin mi?', 'Kaydettiğiniz tüm favori rotalar kaldırılacak.', () => { state.favorites = []; persist(); renderHome(); renderFavorites(); });
+$('clear-favorites').onclick = () => confirmAction('Favoriler temizlensin mi?', 'Kaydettiğiniz tüm favori konumlar kaldırılacak.', () => { state.favoriteLocations = []; persist(); renderHome(); renderFavorites(); });
 let permissionStatus, locating = null, latestPosition = null;
 async function updatePermission() {
   if (!isSecureContext) { $('location-status').textContent = 'Konum izni: HTTPS adresi gerekli.'; return; }
@@ -295,20 +279,22 @@ async function updatePermission() {
   } catch { $('location-status').textContent = 'Konum izni: tarayıcı tarafından yönetilir.'; }
 }
 function updateGPSSuggestion() {
-  const available = !!gpsSuggestion && gpsSuggestion.location.id !== state.settings.origin;
-  $('gps-suggestion').hidden = !available;
-  $('origin').closest('.origin-card').classList.toggle('has-suggestion', available);
+  $('gps-suggestion').hidden = true;
+  $('origin').closest('.origin-card').classList.remove('has-suggestion');
 }
 const distanceLabel = distance => distance < 1000 ? `${Math.round(distance)} m` : `${(distance / 1000).toFixed(1)} km`;
 function displayPosition(position) {
   const c = position.coords;
-  gpsSuggestion = suggestedOrigin(c, originChoices);
+  const preferredIds = new Set([...originChoices.map(l => l.id), ...state.favoriteLocations]);
+  const favoriteSet = new Set(state.favoriteLocations);
+  const candidates = locations.filter(l => preferredIds.has(l.id)).sort((a, b) => Number(favoriteSet.has(b.id)) - Number(favoriteSet.has(a.id)));
+  gpsSuggestion = suggestedOrigin(c, candidates);
   const closest = nearestOrigin(c, locations.filter(l => l.coordinateKind !== 'area'));
   const details = `Konum alındı: ${c.latitude.toFixed(6)}, ${c.longitude.toFixed(6)} · Doğruluk ±${Math.round(c.accuracy)} m`;
   $('gps-details').textContent = details;
   if (gpsSuggestion) {
     const l = gpsSuggestion.location, distance = distanceLabel(gpsSuggestion.distance);
-    $('gps-message').textContent = `${l.name} • ${distance}`;
+    $('gps-message').textContent = `Yakında: ${l.name} • ${distance}`;
     $('gps-suggestion').textContent = `${l.name} · ${distance} seç`;
     $('gps-suggestion').setAttribute('aria-label', `${l.name} başlangıcını seç, ${distance}`);
   } else if (c.accuracy > 150) {
@@ -316,14 +302,14 @@ function displayPosition(position) {
     $('gps-details').textContent += ' · Hassasiyet düşük; başlangıç önerilmedi.';
   } else {
     $('gps-message').textContent = 'Konum alındı · Başlangıcı elle seçin';
-    $('gps-details').textContent += closest ? ` · En yakın kayıt: ${closest.location.name}, ${distanceLabel(closest.distance)}. Yakın ve kesin bir başlangıç yok.` : ' · Kayıtlı nokta koordinatı yok.';
+    $('gps-details').textContent += closest ? ` · En yakın kayıt: ${closest.location.name}, ${distanceLabel(closest.distance)}. Eşleşme alanının dışında.` : ' · Kayıtlı nokta koordinatı yok.';
   }
   updateGPSSuggestion();
 }
 function locate(automatic = false) {
   if (locating) return locating;
   gpsSuggestion = null; updateGPSSuggestion();
-  for (const id of ['locate', 'settings-locate', 'coordinate-use-gps']) $(id).disabled = true;
+  for (const id of ['locate', 'save-current', 'settings-locate', 'coordinate-use-gps']) $(id).disabled = true;
   $('gps-message').textContent = 'Konum bulunuyor…'; $('gps-details').textContent = 'Güncel GPS ölçümü bekleniyor…';
   locating = getDevicePosition().then(position => {
     latestPosition = position; displayPosition(position); return position;
@@ -335,16 +321,41 @@ function locate(automatic = false) {
     return null;
   }).finally(() => {
     locating = null;
-    for (const id of ['locate', 'settings-locate', 'coordinate-use-gps']) $(id).disabled = false;
+    for (const id of ['locate', 'save-current', 'settings-locate', 'coordinate-use-gps']) $(id).disabled = false;
     updatePermission();
   });
   return locating;
 }
-$('locate').onclick = () => locate(); $('settings-locate').onclick = () => locate();
+$('locate').onclick = async () => {
+  const position = await locate(); if (!position) return;
+  if (!gpsSuggestion) return toast('Konum alındı. Yakındaki kayıt bulunamadı; başlangıcı listeden seçebilirsin.');
+  state.settings.origin = gpsSuggestion.location.id; selectedId = null; selectedDestinationId = null; persist(); fillOrigins(); renderHome();
+  toast(`${gpsSuggestion.location.name} bölgesindesin.`);
+};
+$('settings-locate').onclick = () => locate();
 $('gps-suggestion').onclick = () => {
   if (!gpsSuggestion) return;
   state.settings.origin = gpsSuggestion.location.id; $('origin').value = state.settings.origin;
-  selectedId = null; persist(); renderHome();
+  selectedId = null; selectedDestinationId = null; persist(); renderHome();
+};
+$('save-current').onclick = async () => {
+  const position = await locate(); if (!position) return;
+  if (position.coords.accuracy > 200) return toast('Konum doğruluğu düşük. Açık alanda tekrar deneyip sonra kaydet.');
+  $('save-location-accuracy').textContent = `GPS doğruluğu ±${Math.round(position.coords.accuracy)} m. Kaydettiğin esneklik alanı bunun üzerine uygulanır.`;
+  $('save-location-name').value = '';
+  $('save-location-dialog').showModal();
+  $('save-location-name').focus();
+};
+$('save-location-form').onsubmit = event => {
+  event.preventDefault(); if (!latestPosition) return;
+  const clean = $('save-location-name').value.trim();
+  if (!clean || clean.length > 100) return toast('Konum adı 1–100 karakter olmalı.');
+  if (locations.some(l => normalize(l.name) === normalize(clean))) return toast('Bu adla bir konum zaten kayıtlı.');
+  const id = `custom-${normalize(clean) || 'konum'}-${Date.now().toString(36)}`;
+  const location = { id, name: clean.toLocaleUpperCase('tr-TR'), aliases: [], lat: latestPosition.coords.latitude, lng: latestPosition.coords.longitude, navigationText: `${clean}, North Cyprus`, matchRadius: Number($('save-location-radius').value) };
+  state.customLocations.push(location); state.favoriteLocations = [...state.favoriteLocations.filter(x => x !== id), id]; state.settings.origin = id;
+  selectedId = null; selectedDestinationId = null; $('save-location-dialog').close(); persist(); refreshAll();
+  toast(`${location.name}, ${location.matchRadius} m esneklikle kaydedildi.`);
 };
 function renderCoordinates() {
   const current = $('coordinate-location').value;

@@ -1,5 +1,5 @@
 // Bump VERSION for every release, including fare-data changes.
-const VERSION = 'v1.4.1';
+const VERSION = 'v1.5.0';
 const BASE = new URL('./', self.location.href);
 const PREFIX = `taksi-tarife:${BASE.pathname}:`;
 const CACHE = PREFIX + VERSION;

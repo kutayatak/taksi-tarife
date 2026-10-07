@@ -42,6 +42,10 @@ test('Turkish normalization, aliases, route search, and origin prioritization', 
   assert.ok(c.searchFares(fares, locations, 'zagota').some(r => r.id === 'prime--zagato'));
   assert.equal(c.searchFares(fares, locations, 'famagusta ercan')[0].price, 3000);
   assert.equal(c.searchFares(fares, locations, 'not-a-location').length, 0);
+  assert.deepEqual(c.searchLocations(locations, 'kale ici', 'pop-art').map(l=>l.id),['kale-ici']);
+  assert.equal(c.searchLocations(locations, 'prime', 'pop-art',['prime'])[0].id,'prime');
+  assert.equal(c.fareBetween(fares,'pop-art','kale-ici').price,500);
+  assert.equal(c.fareBetween(fares,'kale-ici','pop-art'),null);
   for (const pair of [['citymall','citymall-2'],['loof-beach','loof-beach-2'],['lions','lions-2'],['beach-club','beach-club-2'],['pop-art','pop-art-gece'],['grandsaphire','grandsappire']]) assert.ok(pair.every(id => locations.some(l => l.id === id)));
 });
 test('Malformed and duplicate fare data is skipped without crashing', () => {
@@ -116,7 +120,7 @@ test('Manifest and cached assets resolve inside any repository subpath', () => {
   for(const path of assets) { assert.ok(new URL(path,base).href.startsWith(base)); assert.doesNotThrow(()=>readFileSync(new URL(path==='./'?'../index.html':`../${path}`,import.meta.url))); }
 });
 
-test('Only nearby precise POI origins are suggested; region centers and uncertainty do not choose fares', () => {
+test('GPS uses a flexible nearby area and saved favorites may choose their own radius', () => {
   const origins=c.originsFor(fares,locations);
   const at=(id,accuracy=5)=>({latitude:locations.find(l=>l.id===id).lat,longitude:locations.find(l=>l.id===id).lng,accuracy});
   assert.equal(c.suggestedOrigin(at('cember'),origins).location.id,'cember');
@@ -125,8 +129,20 @@ test('Only nearby precise POI origins are suggested; region centers and uncertai
   assert.equal(c.suggestedOrigin(at('girne'),origins),null);
   assert.equal(c.suggestedOrigin(at('magosa'),origins.filter(l=>l.id==='magosa')),null);
   assert.equal(c.nearestOrigin({latitude:NaN,longitude:33},origins),null);
-  // Test fixtures, not shipped location data. Equal distance cannot decide between stands.
-  assert.equal(c.suggestedOrigin({latitude:35,longitude:33,accuracy:5},[{id:'a',lat:35,lng:33},{id:'b',lat:35,lng:33}]),null);
+  // Nearby candidates intentionally choose the nearest one; exact pin overlap is not required.
+  assert.equal(c.suggestedOrigin({latitude:35,longitude:33,accuracy:5},[{id:'a',lat:35,lng:33},{id:'b',lat:35,lng:33}]).location.id,'a');
+  assert.equal(c.suggestedOrigin({latitude:35.009,longitude:33,accuracy:10},[{id:'wide',lat:35,lng:33,matchRadius:1500}]).location.id,'wide');
+  assert.equal(c.suggestedOrigin({latitude:35.009,longitude:33,accuracy:10},[{id:'tight',lat:35,lng:33,matchRadius:250}]),null);
+});
+test('Saved location favorites and match radii survive old and new backups', () => {
+  const s=c.defaultState();
+  s.customLocations.push({id:'custom-ev',name:'EV',aliases:[],lat:35.12,lng:33.92,navigationText:'EV',matchRadius:750});
+  s.favoriteLocations.push('custom-ev'); s.settings.origin='custom-ev';
+  const restored=c.parseImport(JSON.parse(JSON.stringify(s)),true);
+  assert.equal(restored.customLocations[0].matchRadius,750);
+  assert.ok(restored.favoriteLocations.includes('custom-ev'));
+  const old={...c.defaultState()}; delete old.favoriteLocations;
+  assert.deepEqual(c.parseImport(old,true).favoriteLocations,['pop-art','prime','nurol-arkasi','taksi-duragi']);
 });
 test('Local coordinates round-trip, reject invalid imports atomically, and preserve earlier backups', () => {
   const s=c.defaultState();

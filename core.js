@@ -20,7 +20,17 @@ const checked = validateFares(rawFares, bundledLocations);
 export const baseFares = checked.valid;
 export const dataProblems = checked.problems;
 if (dataProblems.length) console.warn('Tarife doğrulama:', dataProblems);
-export const defaultState = () => ({ schemaVersion: 1, overrides: {}, coordinateOverrides: {}, customRoutes: [], customLocations: [], favorites: [], recents: [], settings: { theme: 'dark', navigation: 'ask', origin: 'pop-art' } });
+export const defaultState = () => ({
+  schemaVersion: 1,
+  overrides: {},
+  coordinateOverrides: {},
+  customRoutes: [],
+  customLocations: [],
+  favorites: [],
+  favoriteLocations: ['pop-art', 'prime', 'nurol-arkasi', 'taksi-duragi'],
+  recents: [],
+  settings: { theme: 'dark', navigation: 'ask', origin: 'pop-art' }
+});
 const isObject = o => o !== null && typeof o === 'object' && !Array.isArray(o);
 const validPrice = n => typeof n === 'number' && Number.isFinite(n) && n > 0 && n <= 1000000;
 export function parseImport(value, backup = false) {
@@ -34,7 +44,9 @@ export function parseImport(value, backup = false) {
     const coords = l.lat == null && l.lng == null || typeof l.lat === 'number' && typeof l.lng === 'number' && Number.isFinite(l.lat) && Number.isFinite(l.lng) && Math.abs(l.lat) <= 90 && Math.abs(l.lng) <= 180;
     if (!coords) throw new Error('Konum koordinatları geçersiz.');
     known.add(l.id);
-    return { id: l.id, name: l.name.trim(), aliases: l.aliases, lat: l.lat ?? null, lng: l.lng ?? null, navigationText: typeof l.navigationText === 'string' ? l.navigationText.slice(0, 250) : `${l.name}, North Cyprus` };
+    const matchRadius = l.matchRadius === undefined ? undefined : Number(l.matchRadius);
+    if (matchRadius !== undefined && (!Number.isFinite(matchRadius) || matchRadius < 100 || matchRadius > 3000)) throw new Error('Konum esneklik alanı 100–3000 metre olmalı.');
+    return { id: l.id, name: l.name.trim(), aliases: l.aliases, lat: l.lat ?? null, lng: l.lng ?? null, navigationText: typeof l.navigationText === 'string' ? l.navigationText.slice(0, 250) : `${l.name}, North Cyprus`, ...(matchRadius === undefined ? {} : { matchRadius }) };
   });
   const locations = [...bundledLocations, ...result.customLocations];
   if (value.coordinateOverrides !== undefined) {
@@ -65,6 +77,10 @@ export function parseImport(value, backup = false) {
       if (!Array.isArray(value[field]) || value[field].some(id => typeof id !== 'string')) throw new Error('Yedek rota listesi geçersiz.');
       result[field] = [...new Set(value[field].filter(id => ids.has(id)))].slice(0, limit);
     }
+    if (value.favoriteLocations !== undefined) {
+      if (!Array.isArray(value.favoriteLocations) || value.favoriteLocations.some(id => typeof id !== 'string')) throw new Error('Yedek konum favorileri geçersiz.');
+      result.favoriteLocations = [...new Set(value.favoriteLocations.filter(id => known.has(id)))].slice(0, 100);
+    }
   }
   return result;
 }
@@ -87,6 +103,13 @@ export function searchFares(rows, locations, query, origin = '') {
   return rows.filter(r => terms.every(q => `${names.get(r.from)} ${names.get(r.to)} ${normalize(r.fromName)} ${normalize(r.toName)}`.includes(q)))
     .sort((a, b) => Number(b.from === origin) - Number(a.from === origin) || a.from.localeCompare(b.from, 'tr') || (a.toName || names.get(a.to)).localeCompare(b.toName || names.get(b.to), 'tr'));
 }
+export function searchLocations(locations, query, currentId = '', favorites = []) {
+  const terms = String(query).trim().split(/\s+/).map(normalize).filter(Boolean);
+  const favoriteSet = new Set(favorites);
+  return locations.filter(l => l.id !== currentId && terms.every(term => [l.name, ...l.aliases].map(normalize).join(' ').includes(term)))
+    .sort((a, b) => Number(favoriteSet.has(b.id)) - Number(favoriteSet.has(a.id)) || a.name.localeCompare(b.name, 'tr'));
+}
+export const fareBetween = (rows, from, to) => rows.find(r => r.from === from && r.to === to) || null;
 export function remember(state, id) { state.recents = [id, ...state.recents.filter(r => r !== id)].slice(0, 10); }
 export function toggleFavorite(state, id) {
   if (state.favorites.includes(id)) state.favorites = state.favorites.filter(r => r !== id);
@@ -116,10 +139,11 @@ export function suggestedOrigin(coords, origins) {
   if (!coords || !Number.isFinite(coords.accuracy) || coords.accuracy > 150) return null;
   const candidates = origins.filter(l => l.coordinateKind !== 'area');
   const nearest = nearestOrigin(coords, candidates);
-  if (!nearest || nearest.distance > 750) return null;
-  const second = nearestOrigin(coords, candidates.filter(l => l.id !== nearest.location.id));
-  // Do not guess between neighboring origins when GPS uncertainty overlaps them.
-  if (second && second.distance - nearest.distance <= 2 * coords.accuracy) return null;
+  if (!nearest) return null;
+  // Saved places are areas, not exact pins. GPS uncertainty is added to the
+  // chosen radius so a device at the edge does not flicker in and out.
+  const radius = nearest.location.matchRadius ?? 1000;
+  if (nearest.distance > radius + Math.min(coords.accuracy, 150)) return null;
   return nearest;
 }
 export function navigationURL(location, provider, currentPosition = null) {

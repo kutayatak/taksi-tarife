@@ -1,4 +1,4 @@
-# Konum araştırması ve eksik noktalar — v1.4.1
+# Konum araştırması ve eksik noktalar — v1.5.0
 
 Araştırma tarihi: 6 Ekim 2026. **64 konumun 43’ünde koordinat var: 28 işletme/nokta ve 15 bölge referansı. 21 kayıt tamamlanmadı.** 166 rota ve tüm fiyatlar korunmuştur. İnternet araştırması geliştirme sırasında yapıldı; uygulama çalışma sırasında harita/arama/Overpass hizmetine bağlanmaz.
 
@@ -91,7 +91,7 @@ Araştırılmış fakat kullanılmamış adaylar: [Grand Aras Dormitory](https:/
 - Telefon konumu, kayıtlı yerlerin koordinatları eksik olsa bile alınabilir. HTTPS, telefonun Konum Servisleri ve siteye konum izni gerekir; izin tarayıcı tarafından yönetilir.
 - Yeni ölçüm yüksek doğrulukla istenir (`enableHighAccuracy: true`, `maximumAge: 0`, 15 saniye). Tarayıcı geri dönüş yapmazsa ek sonlandırma süresi arayüzü serbest bırakır. Geç gelen cevap önceki başarısız isteği değiştirmez. Yeniden deneme mümkündür.
 - Aynı anda tek Konumumu Bul isteği çalışır; Ana Sayfa, Ayarlar ve koordinat formundaki GPS düğmeleri birlikte kilitlenir ve her sonuçta tekrar açılır.
-- En fazla 750 metre uzaktaki, doğruluğu ±150 metre veya daha iyi ölçülmüş işletme/durak başlangıcı önerilebilir. İki başlangıç ölçüm belirsizliğinde çakışıyorsa öneri yapılmaz. Kullanıcı öneriye dokunmadan başlangıç, seçili rota ve fiyat değiştirilmez.
+- Doğruluğu ±150 metre veya daha iyi ölçümde en yakın uygun işletme/durak, varsayılan 1 km alan içinde başlangıç olarak kullanılabilir. Kullanıcının GPS ile kaydettiği favoriler 250–2000 metre arasında kendi esneklik alanını taşır; sınırda cihazın bildirdiği doğruluk payı eklenir. En yakın uygun kayıt seçilir, tam pin üstünde olmak gerekmez.
 - İzin reddi, konum belirlenememesi, zaman aşımı ve düşük hassasiyet ayrı mesajlar verir. Elle tarife seçimi kullanılabilir kalır. Düşük doğrulukta veya yakında uygun başlangıç yokken ücret türetilmez.
 - GPS cihaz konumu ve doğruluk Ayarlar’da gösterilir; GPS izi/geçmişi kaydedilmez. “Bu noktadayım · GPS kullan” yalnızca formu doldurur. Doğruluk ±100 metreden kötüyse koordinat doldurmaz; kullanıcı Kaydet’e basmadan yerel konum değişmez.
 - Yerel koordinatlar `coordinateOverrides` içinde tutulur. Değişiklik dışa aktarma ve tam yedek dahil JSON ile taşınabilir. Eski sürüm yedekleri de kabul edilir. Her konumun yerel değişikliği tek düğmeyle varsayılana döner.

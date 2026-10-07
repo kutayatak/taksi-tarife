@@ -22,17 +22,15 @@ All application URLs are relative. Hash tabs (`#home`, `#fares`, `#favorites`, `
 
 ## Driver workflow
 
-- The home screen opens with four fixed **Hızlı Git** actions: **Pop Art**, **Prime**, **Nurol**, and **Durak**. Pop Art, Prime, and Nurol open directions and prepare that location as the fare origin. **Durak** navigates to the Göçmen Taksi stand beside Çilem Market; because that stand has no supplied fare group, it deliberately leaves the current fare origin unchanged. Grand Aras Durak remains a separate 12-route fare origin.
-- The selected fare origin remains prominent below those actions. Origins are generated from the effective fares and ordered by route count; custom origins automatically appear.
-- Enter the passenger destination under **Müşteri nereye gidiyor?** Search handles Turkish letters, dotted/dotless I, punctuation, and aliases, and is intentionally limited to the selected origin to prevent the wrong origin fare being chosen in the vehicle. Use **Tarifeler** to search across all origins.
-- The fare card includes **Pop Art / Prime / Nurol / Durak** return actions. Each prepares the next fare origin while opening current-location directions back to that work hub.
-- Up to six favorite, recent, or suggested fare routes remain available under **Hızlı tarifeler**, below the primary pickup workflow.
-- The selected fare appears prominently. Open navigation, save the complete route as a favorite, or look up the reverse route **only when an explicitly priced reverse route exists**.
-- Up to six favorites are prioritized on the home screen; all saved favorites are in **Favoriler**. Recent lookups keep the last ten distinct routes. Selecting a favorite or recent route restores its origin and **current effective price**, including any local change.
-- **Şehir İçi** is a manual quick fare. It never changes the price of a listed route. It can also be saved as a favorite or recent quick fare.
-- A labeled, sticky header button switches between **Gece** and **Gündüz** in one tap, including while viewing a fare. The button names the mode it will switch to. The choice is stored locally and applied before the first paint on reopen, including offline. **Ayarlar → Tema** also offers **Sisteme göre**, which follows the phone theme. Choose Apple Maps, Google Maps, or ask-every-time navigation in **Ayarlar**. On iPhone/iPad, the navigation chooser puts Apple Maps first.
+- The main screen is one loop: **Nereden? → Nereye? → price → Yol tarifini aç**.
+- **Nereden?** contains every registered and locally saved location. Destination search handles Turkish letters, dotted/dotless I, punctuation, and aliases.
+- The app looks up the exact directional pair. If that pair exists, it shows its current effective price. If it does not exist, it explicitly says **Ücret kaydı yok** and never derives or invents a price.
+- Opening a map makes the selected destination the next starting point. Returning to the app is therefore immediately ready for the next passenger or return trip.
+- Pop Art, Prime, Nurol and the Çilem Market taxi stand start as frequent locations. **Burayı kaydet** records a fresh device position with a user-selected 250 m–2 km matching area and adds it to frequent locations.
+- **Konumumu kullan** takes a fresh reading and chooses the nearest eligible fare origin or saved favorite inside its allowed area. GPS accuracy must be ±150 m or better for automatic matching; saving a new favorite requires ±200 m or better.
+- The theme button switches between **Gece** and **Gündüz**. **Ayarlar → Tema** also offers **Sisteme göre**. Choose Apple Maps, Google Maps, or ask-every-time navigation in **Ayarlar**.
 
-**Bulunduğum Konumdan Git** on the fare card opens directions from your actual device location to the selected destination. The four **Hızlı Git** and four fare-card return actions do the same for work hubs while explicitly setting the next fare origin. The collapsible **Konumumdan yol tarifi** area on the home screen also supports every registered location, even when no fare exists from the chosen tariff origin. The tariff origin is never used as the navigation start and no GPS-based fare is invented. The map chooser refreshes GPS without delaying its opening; if browser GPS is unavailable, Apple Maps requests Current Location and Google Maps uses its default current-location origin. With a preferred maps app, that app resolves current location directly.
+**Yol tarifini aç** always asks the map provider for directions from the device's current position; the fare-origin label is never sent as the physical navigation start. If browser GPS is unavailable, Apple Maps requests Current Location and Google Maps uses its default current-location origin.
 
 Only navigation launches an external map. Maps are not embedded. Fare lookup never contacts an external service. Navigation may require an internet connection or offline maps configured in the selected maps app.
 
@@ -83,7 +81,7 @@ Do not put quotes around numeric coordinates. Both values must be valid together
 
 **Ayarlar → Konum koordinatları** lets the driver select any existing/custom location, enter verified latitude/longitude, point type, and an optional HTTPS source link, then save locally. Decimal commas are accepted. **Bu noktadayım · GPS kullan** fills the fields with a fresh measurement only when accuracy is ±100 m or better; saving is a separate explicit action. Only use it while physically at the selected location. Local pins appear in backups and modification exports and can be reset per location without changing bundled data. Unknown short map links are not geocoded automatically.
 
-**Konumumu Bul** works independently of fare-coordinate coverage. It requests a fresh high-accuracy reading, reports permission denial, unavailable position, and timeout separately, and always re-enables retry. Settings show device coordinates and accuracy, but no GPS trace/history is stored. The closest eligible POI origin is suggested only within 750 m, with accuracy ±150 m or better, and without overlapping alternative origins. Distant points and city centers never become misleading stand suggestions. The selected origin, route, and price remain unchanged until the driver accepts a suggestion. HTTPS and phone/site location permission are required. Device hardware, the OS and browser determine whether an actual fix is available; fare lookup stays usable regardless.
+**Konumumu kullan** works independently of fare-coordinate coverage. It requests a fresh high-accuracy reading, reports permission denial, unavailable position, and timeout separately, and always re-enables retry. Settings show device coordinates and accuracy, but no GPS trace/history is stored. Automatic matching uses a 1 km default area for eligible POIs and the chosen 250 m–2 km area for saved favorites; reported GPS uncertainty is included at the edge. The nearest eligible point wins, so exact pin overlap is not required. HTTPS and phone/site location permission are required.
 
 ### Change bundled fares and release an update
 
@@ -119,10 +117,10 @@ CHROMIUM_PATH="$(node -e "console.log(require('playwright').chromium.executableP
 
 Alternatively, point `CHROMIUM_PATH` at an existing Chromium executable. The test defaults to `/usr/bin/chromium` on Linux. Neither Node nor Playwright is shipped as a runtime dependency to users.
 
-Tests cover all 166 source prices/labels and group counts; unique route keys; Turkish normalization and aliases; route filtering/prioritization; local storage overrides and reset; favorites; ten-item recents; custom/reverse routes and generated origins; validated JSON import/export and full backups; source-backed coordinate validation and text fallback; local coordinate editing and JSON round trips; GPS permission/timeout/unavailable/poor-accuracy/far-away/invalid-sample scenarios and successful retries without disturbing an active fare; mobile overflow and visible lookup controls at 320×568, 375×667, 390×844, and 412×915; night/day persistence, offline theme changes, and system-theme updates; direct static hosting at `/` and `/taksi-tarife/`; cached offline reloads; and the service worker update lifecycle.
+Tests cover all 166 source prices/labels and group counts; exact directional fare lookup; explicit missing-price behavior; Turkish normalization and aliases; local price overrides; custom routes; validated JSON import/export and backups; source-backed coordinates; flexible saved-place radii; GPS permission/timeout/unavailable/poor-accuracy/far-away/invalid-sample scenarios; mobile overflow at 320×568, 375×667, 390×844, and 412×915; direct static hosting at `/` and `/taksi-tarife/`; cached offline reloads; and the service-worker update lifecycle.
 
 The browser tests use a local static server and simulate a newer worker in its responses without modifying repository files. Review screenshots go to `review/`; other diagnostic screenshots go to the OS temporary directory. No test server, database, or third-party network request is needed by the production app.
 
-## Home-screen review (v1.4.1)
+## Home-screen review (v1.5.0)
 
-The driver workflow review and resulting layout changes are documented in [UX-REVIEW.md](./UX-REVIEW.md). Screenshots: [night mode](./review/gece.png) and [day mode](./review/gunduz.png). These review images are not loaded by the app or added to the offline shell.
+The latest simplified mobile workflow screenshots show the [start screen](./review/yeni-akis.png) and [directional fare result](./review/yeni-akis-sonuc.png). Review images are not loaded by the app or added to the offline shell.
